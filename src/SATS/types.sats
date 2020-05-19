@@ -1,0 +1,14 @@
+#include "share/atspre_define.hats"
+#include "share/atspre_staload.hats"
+
+absvtype Server
+absvtype Req
+absvtype Headers
+absvtype Conn
+
+datatype Method = 
+| GET of ()
+| PUT of ()
+| POST of () 
+| HEAD of () 
+| DELETE of () 
