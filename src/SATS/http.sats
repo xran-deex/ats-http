@@ -2,6 +2,7 @@
 #include "share/atspre_staload.hats"
 #include "ats-epoll/ats-epoll.hats"
 #include "hashtable-vt/hashtable_vt.hats"
+#include "ats-threadpool/ats-threadpool.hats"
 staload "./../SATS/types.sats" 
 
 fn string_from_bytes{n,m:int | m < n && m > 0}(b: @[byte][n], cnt: int(m)): strnptr(m) = "mac#"
@@ -21,12 +22,14 @@ fn http_read_err
     pf: !bytes_v(l, n) | fd: int, s: ptr(l), size_t(n)): [m:int | m <= n] int(m) = "mac#"
 fn reuseport(fd: int): void = "mac#"
 
+vtypedef Handler = (!Req) -<cloptr1> strptr
 
 datavtype server_ = S of @{
-    router= $HT.hashtbl(strptr, (!Req) -<cloptr1> strptr),
+    router= $HT.hashtbl(strptr, ptr),
     threadCount= [n:nat] int(n),
     threads= List0_vt(lint),
     server_fd= [n:int | n > 0] int(n)
+    // thread_pool=$POOL.Pool
 }
 
 fn{} make_server(port: int): Server
@@ -34,4 +37,4 @@ fn{} set_thread_count{n:nat}(server: !Server, threads: int(n)): void
 fn{} route(server: !Server, path: string): void
 fn{} run_server(server: !Server): void
 fn{} free_server(server: Server): void
-fn{} add_route(server: !Server, route: string, handler: (!Req) -<cloptr1> strptr): void
+fn{} add_route(server: !Server, route: string, handler: Handler): void

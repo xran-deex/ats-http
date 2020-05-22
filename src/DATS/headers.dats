@@ -53,3 +53,13 @@ implement{} put_header_value(headers, key, value) = {
     }
     prval() = fold@headers
 }
+
+implement{} print_headers(headers) = {
+    val+@H(h) = headers
+    val () = $HT.hashtbl_foreach(h.map) where {
+        implement $HT.hashtbl_foreach$fwork<strptr,strptr><void>(k, v, e) = {
+            val () = println!(k, ": ", v)
+        }
+    }
+    prval() = fold@headers
+}

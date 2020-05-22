@@ -12,3 +12,6 @@ fn{} new_headers(): Headers
 fn{} get_header_value(h: !Headers, header: string): Option_vt(string)
 fn{} free_headers(h: Headers):<!wrt> void
 fn{} put_header_value(h: !Headers, header: strptr, value: strptr): void
+fn{} print_headers(h: !Headers): void
+
+overload print with print_headers

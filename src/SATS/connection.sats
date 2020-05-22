@@ -9,9 +9,12 @@ datavtype conn_ = C of @{
     res=stringbuf,
     meth=Option_vt(Method),
     path=strptr,
-    headers=Option_vt(Headers)
+    headers=Option_vt(Headers),
+    body=strptr
 }
 
 fn{} make_conn(fd: int): Conn
 fn{} free_conn(conn: Conn):<!wrt> void
-fn{} parse_conn{n:nat | n > 1}(conn: !Conn, buf: &(@[byte][n]), sz: int(n)): void
+fn{} parse_conn_from_buffer{n:nat | n > 1}(conn: !Conn, buf: &(@[byte][n]), sz: int(n)): void
+fn{} parse_conn(conn: !Conn): void
+fn{} append_data{n, x:nat | n > 1 && x <= n}(conn: !Conn, buf: &(@[byte][n]), sz: int(n), cnt: int(x)): void

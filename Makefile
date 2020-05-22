@@ -26,7 +26,7 @@ $(EXEDIR)/$(APP): $(OBJS)
 	$(dir_guard)
 	$(ATSCC) $(ATSCCFLAGS) -o $@ $(OBJS) $(LIBS)
 .SECONDEXPANSION:
-$(OBJDIR)/%.o: %.dats $$(wildcard src/SATS/$$*.sats)
+$(OBJDIR)/%.o: %.dats #$$(wildcard src/SATS/$$*.sats)
 	$(dir_guard)
 	$(ATSCC) $(ATSCCFLAGS) -c $< -o $(OBJDIR)/$(@F) -cleanaft
 RMF=rm -f

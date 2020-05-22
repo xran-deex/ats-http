@@ -34,10 +34,10 @@ fn{} listen{n:int|n>=0}(sfd: int(n)): void = {
     val () = $extfcall(void, "atslib_libats_libc_listen_exn", sfd, SOMAXCONN) 
 }
 
-#define BUFSZ 1024
+#define BUFSZ 100
 
 fn{} add_content_type(sb: !stringbuf): int =
-    stringbuf_insert_string(sb, "Content-Type: text/plain\r\n")
+    stringbuf_insert_string(sb, "Content-Type: text/html\r\n")
 fn{} add_keep_alive(sb: !stringbuf): int =
     stringbuf_insert_string(sb, "Connection: Keep-Alive\r\n")
 fn{} add_http_1_1(sb: !stringbuf): int =
@@ -68,6 +68,7 @@ fn{} write_response(sb: !stringbuf, fd: int): int = ret where {
     prval () = pff(pf)
 }
 
+// HACK - read into an existing stringbuf from a file descriptor
 fn
 {}(*tmp*)
 stringbuf_insert_read
@@ -110,72 +111,82 @@ fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
     val iserr = (evs land EPOLLERR) > 0
     val isclose = (evs land (EPOLLRDHUP lor EPOLLHUP)) > 0
     // val () = println!("read: ", isread, ", write: ", iswrite, ", close: ", isclose, ", edge: ", isedge, ", error: ", iserr)
-    // val () = if iserr then println!("err")
-    // val () = if isclose then println!("close")
-    val r = true
-    val () = if r then if isread && ~iserr then {
+    val () = if isread && ~iserr then {
         fun loop(e: !Epoll, w: !Watcher): void = {
             // val () = println!("fd: ", fd)
             var buf = @[byte][BUFSZ](int2byte0 0)
-            val r = http_read_err2(fd, buf, i2sz (BUFSZ))
-            val (pf | opt) = watcher_data_takeout<Conn>(w)
-            val-~Some_vt(c) = opt
-            val () = parse_conn(c, buf, BUFSZ)
-            val () = watcher_data_addback<Conn>(pf | w, c)
-            // val () = assertloc(BUFSZ >= r)
-            val () = if r <= 0 then {
+            val num_read = http_read_err2(fd, buf, i2sz (BUFSZ))
+
+            val () = if num_read <= 0 then {
+                val (pf | opt) = watcher_data_takeout<Conn>(w)
+                val-~Some_vt(conn) = opt
+                val () = parse_conn(conn)
+                // val () = parse_conn_from_buffer(conn, buf, BUFSZ)
+                val+C(c) = conn
+                val (pf2 | opt) = epoll_data_takeout<Server>(e)
+                val-~Some_vt(serve) = opt
+                val (pfs | server) = shared_lock(serve)
+                val+@S(s) = server
+                val+@C(c) = conn
+                val req = stringbuf_takeout_all(c.req)
+                val () = free(req)
+                val-@Some_vt(headers) = c.headers
+                var meth = (case+ c.meth of
+                | ~Some_vt(meth) => meth
+                | ~None_vt() => GET): Method
+                val ptr = $HT.hashtbl_search_ref(s.router, c.path)
+                val func = (if ptr != 0 then $UNSAFE.castvwtp1{Handler}($UNSAFE.cptr_get<ptr>(ptr)) else (lam req =<cloptr1> copy("error"))): Handler
+                val req = make_req(headers, c.path, meth, c.body)
+                val res = func(req)
+                val () = if ptr = 0 then {
+                    val () = cloptr_free($UNSAFE.castvwtp0{cloptr(void)}func)
+                } else {
+                    prval () = $UNSAFE.cast2void(func)
+                }
+                val+~R(r) = req
+                val () = headers := r.headers
+                val () = meth := r.method
+                val () = c.meth := Some_vt(meth)
+                val () = c.path := r.path
+                val () = c.body := r.body
+                prval() = fold@(c.headers)
+
+                val _ = add_http_1_1(c.res)
+                val _ = add_200(c.res)
+                val _ = add_content_type(c.res)
+                val _ = add_keep_alive(c.res)
+                val _ = add_content_length(c.res, res)
+                val _ = finish_headers(c.res)
+                val () = add_content(c.res, res)
+                prval () = fold@conn
+                val () = watcher_data_addback<Conn>(pf | w, conn)
                 val () = update_watcher(e, w, EPOLLOUT lor EPOLLET)
-            } else if r > 0 then {
+
+                prval () = fold@server
+
+                val () = shared_unlock(pfs | serve, server)
+                val () = epoll_data_addback(pf2 | e, serve)
+            } else if num_read > 0 then {
+                val (pf | opt) = watcher_data_takeout<Conn>(w)
+                val-~Some_vt(conn) = opt
+                val () = append_data(conn, buf, BUFSZ, num_read)
+                val () = watcher_data_addback<Conn>(pf | w, conn)
                 val () = loop(e, w)
             }
-            // val () = stringbuf_free(sb)
         }
         val () = loop(e, w)
     }
 
-    val () = if r && ~iserr then if iswrite then { 
+    val () = if iswrite && ~iserr then { 
         fun loop(e: !Epoll, w: !Watcher): void = {
             var buf = @[byte][1024](int2byte0 0)
-            val (pf | opt) = epoll_data_takeout<Server>(e)
-            val-~Some_vt(serve) = opt
-            val (pfs | server) = shared_lock(serve)
-            val+@S(s) = server
             val (pf2 | opt) = watcher_data_takeout<Conn>(w)
             val-~Some_vt(st) = opt
             val+@C(c) = st
-            val req = stringbuf_takeout_all(c.req)
-            val () = free(req)
-            val-@Some_vt(headers) = c.headers
-            var meth = (case+ c.meth of
-            | ~Some_vt(meth) => meth
-            | ~None_vt() => GET): Method
-            // val ptr = $HT.hashtbl_search_ref(s.router, $UNSAFE.castvwtp1{string}c.path)
-            val ptr = $HT.hashtbl_search_ref(s.router, c.path)
-            val func = (if ptr != 0 then $UNSAFE.cptr_get<((!Req) -<cloptr1> strptr)>(ptr) else (lam req =<cloptr1> copy("error"))): ((!Req) -<cloptr1> strptr)
-            val req = make_req(headers, c.path, meth)
-            val res = func(req)
-            prval () = $UNSAFE.cast2void(func)
-            val+~R(r) = req
-            val () = headers := r.headers
-            val () = meth := r.method
-            val () = c.meth := Some_vt(meth)
-            val () = c.path := r.path
-            prval() = fold@(c.headers)
-            prval () = fold@server
-
-            val () = shared_unlock(pfs | serve, server)
-            val () = epoll_data_addback(pf | e, serve)
-
-            val _ = add_http_1_1(c.res)
-            val _ = add_200(c.res)
-            val _ = add_content_type(c.res)
-            val _ = add_keep_alive(c.res)
-            val _ = add_content_length(c.res, res)
-            val _ = finish_headers(c.res)
-            val () = add_content(c.res, res)
 
             val ret = write_response(c.res, fd)
             val () = free(stringbuf_truncout_all(c.res))
+
             val () = case+ c.headers of
             | ~Some_vt(h) => (free_headers(h);c.headers := None_vt())
             | @None_vt() => fold@(c.headers)
@@ -235,16 +246,26 @@ implement{} make_server(port) = sh where {
     val S(se) = server
     val () = se.threadCount := 1
     val () = se.threads := list_vt_nil()
-    val () = se.router := $HT.hashtbl_make_nil(i2sz 10)// (lam (req: !Req): strptr =<cloptr1> copy("world"))
+    val () = se.router := $HT.hashtbl_make_nil(i2sz 10)
     val () = se.server_fd := s
+    // val () = se.thread_pool := $POOL.make_pool(10)
+    // val () = $POOL.init_pool(se.thread_pool)
     prval () = fold@server
     val sh = shared_make(server)
 }
 
+implement gclear_ref<ptr>(x) = $UNSAFE.cast2void(x)
+
 fn{} free_server_(server: server_): void = {
     val+~S(s) = server
+    // val () = $POOL.stop_pool(s.thread_pool)
     val () = list_vt_free(s.threads)
-    val () = cloptr_free($UNSAFE.castvwtp0{cloptr(void)}s.router)
+    val () = $HT.hashtbl_free(s.router) where {
+        implement $HT.hashtbl_free$clear<strptr,ptr>(k, v) = {
+            val () = free(k)
+            val () = cloptr_free($UNSAFE.castvwtp0{cloptr(void)}(v))
+        }
+    }
 }
 
 implement{} run_server(serve) = {
@@ -314,7 +335,7 @@ implement{} add_route(serve, route, handler) = {
         val () = cloptr_free($UNSAFE.castvwtp0{cloptr(void)}func)
     }
     | ~None_vt() => ()
-    val-~None_vt() = $HT.hashtbl_insert_opt(s.router, key, handler)
+    val-~None_vt() = $HT.hashtbl_insert_opt(s.router, key, $UNSAFE.castvwtp0{ptr}(handler))
     prval() = fold@(server)
     val () = shared_unlock(pf | serve, server)
 }
