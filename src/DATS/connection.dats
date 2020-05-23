@@ -3,7 +3,9 @@
 staload "libats/SATS/stringbuf.sats"
 staload "./../SATS/connection.sats" 
 staload "./../SATS/headers.sats" 
+staload "./../SATS/response.sats" 
 staload "./../SATS/types.sats" 
+// staload _ = "prelude/DATS/integer.dats" 
 
 assume Conn = conn_
 
@@ -22,6 +24,15 @@ fn{} method_from_string(s: strptr): Option_vt(Method) = res where {
     val () = free(s)
 }
 
+implement{} method_to_string(m) = res where {
+    val res = case+ m of
+    | GET() => "GET"
+    | POST() => "POST"
+    | PUT() => "PUT"
+    | HEAD() => "HEAD"
+    | DELETE() => "DELETE"
+}
+
 implement{} make_conn(fd) = conn where {
     val conn = C(_)
     val C(c) = conn
@@ -32,7 +43,15 @@ implement{} make_conn(fd) = conn where {
     val () = c.meth := None_vt()
     val () = c.headers := None_vt()
     val () = c.body := copy("")
+    val () = c.status := 200
+    val () = c.response := make_response()
     prval() = fold@conn
+}
+
+implement{} set_status(conn, status) = {
+    val+@C(c) = conn
+    val () = c.status := status
+    prval () = fold@conn
 }
 
 implement{} free_conn(conn) = {
@@ -42,6 +61,7 @@ implement{} free_conn(conn) = {
     val () = option_vt_free(c.meth)
     val () = strptr_free(c.path)
     val () = strptr_free(c.body)
+    val () = free_response(c.response)
     val () = case+ c.headers of
     | ~Some_vt(headers) => free_headers(headers)
     | ~None_vt() => ()
@@ -176,15 +196,13 @@ implement{} parse_conn(conn) = {
     val () = assertloc(strnptr_length(req) >= 0)
     val sb = stringbuf_make_nil_int(1024)
     datavtype parse_state = | METHOD | PATH | PROTO | HEADERKEY | HEADERVALUE | HEADERSPACE | NEWLINE | BODY | DONE
-    vtypedef state = @{ b=stringbuf, s=parse_state, meth=Option_vt(Method), path=strptr, headerkey=strptr, headers=Headers, body=strptr }
+    vtypedef state = @{ b=stringbuf, s=parse_state, meth=Option_vt(Method), path=strptr, headerkey=strptr, headers=Headers, body=strptr, body_cnt=int, content_length=int0 }
     val h = (case+ c.headers of
     | ~Some_vt(h) => h
     | ~None_vt() => new_headers()): Headers
-    var e: state = @{ b=sb, s=METHOD, meth=c.meth, path=c.path, headerkey=copy(""), headers=h, body=c.body }
+    var e: state = @{ b=sb, s=METHOD, meth=c.meth, path=c.path, headerkey=copy(""), headers=h, body=c.body, body_cnt=0, content_length=0 }
     val _ = strnptr_foreach_env<state>(req, e) where {
         implement strnptr_foreach$fwork<state>(ch, ev) = {
-            // val ch = $UNSAFE.cast{int} b
-            // val ch = int2char0 ch
             val [n:int] ch = g1ofg0(ch)
             val () = case+ ev.s of
             | ~METHOD() => {
@@ -237,6 +255,9 @@ implement{} parse_conn(conn) = {
                 val () = if ch = '\r' then {
                     val () = ev.s := NEWLINE
                     val line = stringbuf_truncout_all(ev.b)
+                    val () = if $UNSAFE.castvwtp1{string}(ev.headerkey) = "Content-Length" then {
+                        val () = ev.content_length := $UNSAFE.cast{int}(g0string2int_int($UNSAFE.castvwtp1{string}(line)))
+                    }
                     val key = ev.headerkey
                     val () = put_header_value(ev.headers, key, line)
                     val () = ev.headerkey := copy("")
@@ -251,13 +272,16 @@ implement{} parse_conn(conn) = {
             | ~BODY() => {
                 val () = if ch = '\n' then {
                     val () = ev.s := BODY
-                } else if char1_iseqz(ch) then {
-                    val () = ev.s := DONE
-                    val () = free(ev.body)
-                    val () = ev.body := stringbuf_truncout_all(ev.b)
                 } else {
                     val () = ev.s := BODY
+                    val () = ev.body_cnt := ev.body_cnt + 1
                     val _ = if char1_isneqz(ch) then stringbuf_insert_char(ev.b, ch) else 0
+                    val () = if ev.content_length = ev.body_cnt then {
+                        val-~BODY() = ev.s 
+                        val () = ev.s := DONE
+                        val () = free(ev.body)
+                        val () = ev.body := stringbuf_truncout_all(ev.b)
+                    }
                 }
             }
             | ~DONE() => {

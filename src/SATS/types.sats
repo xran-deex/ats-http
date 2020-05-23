@@ -5,6 +5,7 @@ absvtype Server
 absvtype Req
 absvtype Headers
 absvtype Conn
+absvtype Resp
 
 datatype Method = 
 | GET of ()

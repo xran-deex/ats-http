@@ -20,11 +20,13 @@ staload _ = "libats/DATS/stringbuf.dats"
 #include "shared_vt/ats-shared-vt.hats"
 #include "hashtable-vt/hashtable_vt.hats"
 #include "ats-threadpool/ats-threadpool.hats"
+staload "./../SATS/libz.sats"
 
 staload $EPOLL
 
 %{#
 #include "CATS/ats-http.cats"
+#include "zlib.h"
 %}
 
 staload "./../SATS/http.sats"

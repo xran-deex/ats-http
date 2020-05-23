@@ -21,9 +21,8 @@ ENDIF()
 INCLUDE_DIRECTORIES(src)
 set(CMAKE_C_FLAGS "-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE")
 ATS_COMPILE (TEST_SRC
-	# src/SATS/lib.sats
 	src/DATS/http.dats
 	src/DATS/headers.dats
 	)
 ADD_LIBRARY(ats-http ${TEST_SRC})
-# target_link_libraries(main)
+target_link_libraries(ats-http z)
