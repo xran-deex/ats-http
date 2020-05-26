@@ -99,7 +99,7 @@ fn{} write_response(sb: !stringbuf, fd: int): int = ret where {
 
 fun{} compress_content(content: strptr, compressed: !ptr, sz: int): int = res where {
     var destLen: lint = g0int2int_int_lint BUFSZ
-    val result = compress(compressed, destLen, $UNSAFE.castvwtp1{ptr}content, g0int2int_int_lint sz)
+    val result = $LIBZ.compress(compressed, destLen, $UNSAFE.castvwtp1{ptr}content, g0int2int_int_lint sz)
     val () = free(content)
     val res = $UNSAFE.cast{int}destLen
 }
