@@ -150,8 +150,8 @@ fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
     val () = if isread && ~iserr then {
         fun loop(e: !Epoll, w: !Watcher): void = {
             // val () = println!("fd: ", fd)
-            var buf = @[byte][BUFSZ](int2byte0 0)
-            val num_read = http_read_err2(fd, buf, i2sz (BUFSZ))
+            var buf with pf = @[byte][BUFSZ](int2byte0 0)
+            val num_read = http_read_err(pf | fd, addr@buf, i2sz (BUFSZ))
 
             val () = if num_read <= 0 then {
                 val (pf | opt) = watcher_data_takeout<Conn>(w)

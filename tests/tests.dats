@@ -1,6 +1,6 @@
 #include "../ats-http.hats"
 staload "libats/libc/SATS/string.sats"
-#include "ats-sqlite3/ats-sqlite.hats"
+#include "ats-sqlite3/ats-sqlite3.hats"
 
 staload $REQ
 staload $RESP
@@ -9,7 +9,7 @@ staload $SQLITE
 implement main(argc, argv) = 0 where {
     val server = make_server(8888)
     val () = set_thread_count(server, 6)
-    val () = enable_gzip(server)
+    // val () = enable_gzip(server)
 
     val () = get(server, "/", lam (req,resp) =<cloptr1> res where {
         val in_opt = fileref_open_opt("index.html", file_mode_r)
@@ -37,6 +37,7 @@ implement main(argc, argv) = 0 where {
         val () = set_content_type(resp, "text/plain")
         var db: sqlite3_ptr0?
         val res = open("test.db", db)
+        // yes, what follows is ugly, but hey, it works
         val str = (if res = SQLITE_OK then retu where {
             var stmt: sqlite3_stmt0?
             val sql = "select * from Thing where age > ?1 and name = ?2"

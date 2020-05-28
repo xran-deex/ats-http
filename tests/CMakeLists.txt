@@ -10,6 +10,7 @@ IF (NOT ATS_FOUND)
 	MESSAGE (FATAL_ERROR ”ATS Not Found!”)
 ENDIF ()
 ATS_INCLUDE (.)
+ATS_INCLUDE (./node_modules)
 ATS_INCLUDE (../node_modules)
 INCLUDE_DIRECTORIES(../src)
 INCLUDE_DIRECTORIES(./node_modules/ats-sqlite3)
@@ -18,4 +19,4 @@ ATS_COMPILE (TEST_SRC
 	tests.dats
 )
 ADD_EXECUTABLE(tests ${TEST_SRC})
-target_link_libraries(tests ats-http pthread ats-epoll atslib ats-shared-vt ats-sqlite)
+target_link_libraries(tests ats-http pthread ats-epoll atslib ats-shared-vt ats-sqlite3)
