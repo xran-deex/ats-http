@@ -4,17 +4,11 @@ staload "./../SATS/headers.sats"
 staload "./../SATS/types.sats" 
 staload "./../SATS/request.sats" 
 staload "./../SATS/response.sats" 
-staload "./../SATS/connection.sats" 
+staload "./../SATS/connection.sats"
+staload _ = "./../DATS/connection.dats"
 #define ATS_DYNLOADFLAG 0
 
-staload "libats/DATS/stringbuf.dats"
-assume stringbuf_vtype = stringbuf
-
 assume Server = shared(server_)
-assume Conn = conn_
-assume Headers = headers_
-assume Req = req_
-assume Resp = resp_
 
 fn{} get_server(port: int): [n:int|n>= ~1] int(n) = res where {
     val inport = in_port_nbo(port)
@@ -36,60 +30,11 @@ fn{} listen{n:int|n>=0}(sfd: int(n)): void = {
     val () = $extfcall(void, "atslib_libats_libc_listen_exn", sfd, SOMAXCONN) 
 }
 
-#define BUFSZ 2048
+#define BUFSZ 1024
 
-fn{} add_content_type(sb: !stringbuf, ty: string): int = let
-    val _ = stringbuf_insert_string(sb, "Content-Type: ")
-    val _ = stringbuf_insert_string(sb, ty)
-    in
-    stringbuf_insert_string(sb, "\r\n")
-    end
-fn{} add_keep_alive(sb: !stringbuf): int =
-    stringbuf_insert_string(sb, "Connection: Keep-Alive\r\n")
-fn{} add_http_1_1(sb: !stringbuf): int =
-    stringbuf_insert_string(sb, "HTTP/1.1 ")
-fn{} add_200(sb: !stringbuf): int =
-    stringbuf_insert_string(sb, "200 OK\r\n")
-fn{} add_status_code(sb: !stringbuf, code: int): int = res where {
-    val res = stringbuf_insert_int(sb, code)
-    val res = case+ code of
-    | 200 => stringbuf_insert_string(sb, " OK\r\n")
-    | 404 => stringbuf_insert_string(sb, " NOT FOUND\r\n")
-    | 500 => stringbuf_insert_string(sb, " INTERNAL SERVER ERROR\r\n")
-    | _ => stringbuf_insert_string(sb, " UNKNOWN\r\n")
-}
-fn{} add_gzip(sb: !stringbuf): int =
-    stringbuf_insert_string(sb, "Content-Encoding: deflate\r\n")
-fn{} add_content_length(sb: !stringbuf, content: !strptr): int = let
-    val contentLen = strptr_length(content)
-    val _ = stringbuf_insert_string(sb, "Content-Length: ")
-    val _ = stringbuf_insert_int(sb, $UNSAFE.cast{int}contentLen)
-in
-    stringbuf_insert_string(sb, "\r\n")
-end
-fn{} add_content_length_from_int(sb: !stringbuf, contentLen: int): int = let
-    val _ = stringbuf_insert_string(sb, "Content-Length: ")
-    val _ = stringbuf_insert_int(sb, contentLen)
-in
-    stringbuf_insert_string(sb, "\r\n")
-end
-fn{} finish_headers(sb: !stringbuf): int =
-    stringbuf_insert_string(sb, "\r\n")
-fn{} add_content(sb: !stringbuf, content: strptr): void = let
-    val _ = stringbuf_insert_string(sb, $UNSAFE.castvwtp1{string}(content))
-in
-    free(content)
-end
-fn{} add_content_gzip(sb: !stringbuf, content: !strptr, sz: int): void = let
-    val [n:int] size = $UNSAFE.cast{[n:int]size_t(n)}(sz)
-    val c = $UNSAFE.castvwtp1{string(n)}(content)
-    val _ = stringbuf_insert_strlen(sb, c, size)
-in
-    // free(content)
-end
-fn{} write_response(sb: !stringbuf, fd: int): int = ret where {
+fn{} write_response(conn: !Conn, fd: int): int = ret where {
     var size: size_t?
-    val (pf, pff | buf) = stringbuf_takeout_strbuf(sb, size)
+    val (pf, pff | buf) = get_buffer(conn, size)
     val () = assertloc(size >= 0)
     val () = assertloc(ptr_isnot_null buf)
     val ret = http_write_err(pf | fd, buf, size)
@@ -97,124 +42,70 @@ fn{} write_response(sb: !stringbuf, fd: int): int = ret where {
     prval () = pff(pf)
 }
 
-fun{} compress_content(content: strptr, compressed: !ptr, sz: int): int = res where {
-    var destLen: lint = g0int2int_int_lint BUFSZ
-    val result = $LIBZ.compress(compressed, destLen, $UNSAFE.castvwtp1{ptr}content, g0int2int_int_lint sz)
-    val () = free(content)
-    val res = $UNSAFE.cast{int}destLen
+fn{} get_handler(serve: !Server, conn: !Conn): Handler = handler where {
+    val (pfs | server) = shared_lock(serve)
+    val+@S(s) = server
+    val key = get_routing_key(conn)
+    val ptr = $HT.hashtbl_search_ref(s.router, key)
+    val () = free(key)
+    val handler = (if ptr != 0 then 
+        $UNSAFE.castvwtp1{Handler}($UNSAFE.cptr_get<ptr>(ptr))
+        else res where {
+            // no handler for this path/method combo, so return 404
+            val key = copy("NOTFOUND")
+            val ptr = $HT.hashtbl_search_ref(s.router, key)
+            val () = free(key)
+            val res = (if ptr != 0 then $UNSAFE.castvwtp1{Handler}($UNSAFE.cptr_get<ptr>(ptr)) else $raise NotFoundExn): Handler
+        }
+    ): Handler
+    prval () = fold@server
+
+    val () = shared_unlock(pfs | serve, server)
 }
 
-// HACK - read into an existing stringbuf from a file descriptor
-fn
-{}(*tmp*)
-stringbuf_insert_read
-{n:nat}
-  (sbf: !stringbuf, inp: int, nb: size_t(n)): int = let
-//
-val+@STRINGBUF(A, p, m) = sbf
-//
-val n = $UN.cast{size_t}(p - ptrcast(A))
-//
-val nb = g1ofg0(nb)
-val nb =
-(
-  if nb > 0 then min(nb, m - n) else (m - n)
-) : size_t
-val [nb:int] nb = g1ofg0(nb)
-//
-val
-(
-  pf, fpf | p1
-) = $UN.ptr0_vtake{bytes(nb)}(p)
-val () = assertloc(ptr_isnot_null(p1))
-val nread = http_read_err(pf | inp, p1, nb)
-val ((*void*)) = (p := ptr_add<char>(p, nread))
-//
-prval () = fpf(pf)
-prval () = fold@(sbf)
-//
-in
-  nread
-end // end of [stringbuf_insert_fread]
+fn{} set_response(serve: !Server, conn: !Conn, content: strptr): void = {
+    val (pfs | server) = shared_lock(serve)
+    val+@S(s) = server
+    val () = if s.enable_gzip 
+            then
+            create_response_gzip(conn, content)
+            else
+            create_response(conn, content)
+    prval () = fold@server
+    val () = shared_unlock(pfs | serve, server)
+}
 
 fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
     val fd = watcher_get_fd(w)
-    // val () = println!(athread_self())
-    // val () = println!("Processing... ", fd)
     val isedge = (evs land EPOLLET) > 0
     val isread = (evs land EPOLLIN) > 0
     val iswrite = (evs land EPOLLOUT) > 0
     val iserr = (evs land EPOLLERR) > 0
     val isclose = (evs land (EPOLLRDHUP lor EPOLLHUP)) > 0
-    // val () = println!("read: ", isread, ", write: ", iswrite, ", close: ", isclose, ", edge: ", isedge, ", error: ", iserr)
     val () = if isread && ~iserr then {
         fun loop(e: !Epoll, w: !Watcher): void = {
-            // val () = println!("fd: ", fd)
             var buf with pf = @[byte][BUFSZ](int2byte0 0)
             val num_read = http_read_err(pf | fd, addr@buf, i2sz (BUFSZ))
 
-            val () = if num_read <= 0 then {
+            // TODO - handle requests larger than the buffer size
+            val () = if num_read >= 0 then {
                 val (pf | opt) = watcher_data_takeout<Conn>(w)
                 val-~Some_vt(conn) = opt
-                val () = parse_conn(conn)
-                // val () = parse_conn_from_buffer(conn, buf, BUFSZ)
-                val+C(c) = conn
+                val () = parse_conn_from_buffer(conn, buf, BUFSZ)
+
                 val (pf2 | opt) = epoll_data_takeout<Server>(e)
                 val-~Some_vt(serve) = opt
-                val (pfs | server) = shared_lock(serve)
-                val+@S(s) = server
-                val+@C(c) = conn
-                val req = stringbuf_takeout_all(c.req)
-                val () = free(req)
-                val-@Some_vt(headers) = c.headers
-                var meth = (case+ c.meth of
-                | ~Some_vt(meth) => meth
-                | ~None_vt() => GET): Method
-                val key = string0_append(method_to_string(meth), $UNSAFE.castvwtp1{string}(c.path))
-                val ptr = $HT.hashtbl_search_ref(s.router, key)
-                val () = free(key)
-                val func = (if ptr != 0 then $UNSAFE.castvwtp1{Handler}($UNSAFE.cptr_get<ptr>(ptr)) else (lam (req,resp) =<cloptr1> (set_status_code(resp,404);copy("<h2>404 not found</h2>")))): Handler
-                val req = make_req(headers, c.path, meth, c.body)
-                val res = func(req, c.response)
-                val+~R(r) = req
-                val () = headers := r.headers
-                val () = meth := r.method
-                val () = c.meth := Some_vt(meth)
-                val () = c.path := r.path
-                val () = c.body := r.body
-                prval() = fold@(c.headers)
-                val () = if ptr = 0 then {
-                    val () = cloptr_free($UNSAFE.castvwtp0{cloptr(void)}func)
-                } else {
-                    prval () = $UNSAFE.cast2void(func)
-                }
 
-                val _ = add_http_1_1(c.res)
-                val _ = add_status_code(c.res, get_status_code(c.response))
-                val _ = add_content_type(c.res, get_content_type(c.response))
-                val _ = add_keep_alive(c.res)
-                val () = if s.enable_gzip then {
-                    val _ = add_gzip(c.res)
-                    var bufs = @[byte][1024](int2byte0 0)
-                    val cnt = compress_content(res, $UNSAFE.cast{ptr}bufs, $UNSAFE.cast{int}(strptr_length(res)))
-                    val str = $UNSAFE.castvwtp1{strptr}(bufs)
-                    val _ = add_content_length_from_int(c.res, cnt)
-                    val _ = finish_headers(c.res)
-                    val () = add_content_gzip(c.res, str, cnt)
-                    // stack allocated byte array
-                    prval() = $UNSAFE.cast2void(str)
-                } else {
-                    val _ = add_content_length(c.res, res)
-                    val _ = finish_headers(c.res)
-                    val () = add_content(c.res, res)
-                }
-                prval () = fold@conn
+                val () = clear_request_buffer(conn)
+
+                val handler = get_handler(serve, conn)
+
+                val res = call_handler(conn, handler)
+
+                val () = set_response(serve, conn, res)
+
                 val () = watcher_data_addback<Conn>(pf | w, conn)
                 val () = update_watcher(e, w, EPOLLOUT lor EPOLLET)
-
-                prval () = fold@server
-
-                val () = shared_unlock(pfs | serve, server)
                 val () = epoll_data_addback(pf2 | e, serve)
             } else if num_read > 0 then {
                 val (pf | opt) = watcher_data_takeout<Conn>(w)
@@ -232,23 +123,12 @@ fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
             var buf = @[byte][1024](int2byte0 0)
             val (pf2 | opt) = watcher_data_takeout<Conn>(w)
             val-~Some_vt(st) = opt
-            val+@C(c) = st
 
-            val ret = write_response(c.res, fd)
-            val () = free(stringbuf_truncout_all(c.res))
+            val ret = write_response(st, fd)
+            val () = clear_response_buffer(st)
 
-            val () = case+ c.headers of
-            | ~Some_vt(h) => (free_headers(h);c.headers := None_vt())
-            | @None_vt() => fold@(c.headers)
-            val () = case+ c.meth of
-            | ~Some_vt(m) => c.meth := None_vt()
-            | @None_vt() => fold@(c.meth)
-            // reset content-type
-            val () = set_content_type(c.response, "text/html")
-            prval() = fold@st
             val () = watcher_data_addback<Conn>(pf2 | w, st)
 
-            // val () = println!("ret: ", ret, "errno: ", the_errno_get())
             val () = if ret > 0 && the_errno_get() = 0 then loop(e, w) else {
                 val () = update_watcher(e, w, EPOLLIN lor EPOLLET)
             }
@@ -262,7 +142,6 @@ fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
 }
 
 fun{} accept_conn(e: !Epoll, w: !Watcher, evs: uint): void = () where {
-    // val () = println! "Accepted"
     val fd = watcher_get_fd(w)
     fun loop(e: !Epoll, w: !Watcher): void = {
         val conn = $extfcall(int, "accept", fd, 0, 0)
@@ -305,6 +184,7 @@ implement{} make_server(port) = sh where {
     // val () = $POOL.init_pool(se.thread_pool)
     prval () = fold@server
     val sh = shared_make(server)
+    val () = add_route(sh, "", "NOTFOUND", lam (req,resp) =<cloptr1> (set_status_code(resp,404);copy("<h2>404 not found</h2>")))
 }
 
 implement gclear_ref<ptr>(x) = $UNSAFE.cast2void(x)

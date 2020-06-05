@@ -1,4 +1,5 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 3.10)
+set(CMAKE_C_COMPILER arm-linux-gnueabi-gcc)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 PROJECT (ATSAPP C)
 IF(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/node_modules)
@@ -19,10 +20,12 @@ IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/node_modules)
     ATS_INCLUDE(node_modules)
 ENDIF()
 INCLUDE_DIRECTORIES(src)
-set(CMAKE_C_FLAGS "-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE")
+set(CMAKE_C_FLAGS "-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -O2")
 ATS_COMPILE (TEST_SRC
 	src/DATS/http.dats
 	src/DATS/headers.dats
+	src/SATS/types.sats
+	src/DATS/connection.dats
 	)
 ADD_LIBRARY(ats-http ${TEST_SRC})
 target_link_libraries(ats-http ats-libz)

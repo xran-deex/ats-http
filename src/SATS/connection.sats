@@ -1,17 +1,15 @@
 #include "share/atspre_define.hats"
 #include "share/atspre_staload.hats"
 staload "./../SATS/types.sats" 
+staload "./../SATS/http.sats" 
 staload "libats/SATS/stringbuf.sats"
 
 datavtype conn_ = C of @{
     fd= int,
     req=stringbuf,
     res=stringbuf,
-    meth=Option_vt(Method),
-    path=strptr,
-    headers=Option_vt(Headers),
-    body=strptr,
     status=int,
+    request=Req,
     response=Resp
 }
 
@@ -23,3 +21,10 @@ fn{} append_data{n, x:nat | n > 1 && x <= n}(conn: !Conn, buf: &(@[byte][n]), sz
 fn{} method_to_string(m: Method): string
 fn{} set_status(conn: !Conn, status: int): void
 fn{} set_response(conn: !Conn, body: strptr): void
+fn{} clear_request_buffer(conn: !Conn): void
+fn{} clear_response_buffer(conn: !Conn): void
+fn{} call_handler(conn: !Conn, handler: Handler): strptr
+fn{} get_routing_key(conn: !Conn): strptr
+fn{} create_response(conn: !Conn, content: strptr): void
+fn{} create_response_gzip(conn: !Conn, content: strptr): void
+fn{} get_buffer(conn: !Conn, s: &size_t? >> size_t(n)):<!wrt> #[l:addr;n:nat] (bytes_v(l,n), bytes_v(l, n) -<lin,prf> void | ptr(l))

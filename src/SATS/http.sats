@@ -9,7 +9,7 @@ fn http_write_err
 {n:nat}{l:addr | l > null}
 (
    pf: !bytes_v(l,n) | fd: int, buf: ptr(l), ntotal: size_t(n)
-): ssizeBtw(~1, n) = "mac#" // end-of-fun
+): ssizeBtw(~1, n) = "mac#"
 
 fn http_read_err
 {n:nat}{l:addr | l > null}

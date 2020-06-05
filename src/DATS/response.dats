@@ -5,7 +5,6 @@ staload "./../SATS/response.sats"
 staload H = "./../SATS/headers.sats"
 
 assume Resp = resp_
-assume Headers = $H.headers_
 
 implement{} make_response() = res where {
     val res = RE(@{
