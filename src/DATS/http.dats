@@ -8,6 +8,10 @@ staload "./../SATS/connection.sats"
 staload _ = "./../DATS/connection.dats"
 #define ATS_DYNLOADFLAG 0
 
+%{#
+#include "CATS/ats-http.cats"
+%}
+
 assume Server = shared(server_)
 
 fn{} get_server(port: int): [n:int|n>= ~1] int(n) = res where {

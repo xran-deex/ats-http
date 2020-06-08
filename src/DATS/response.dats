@@ -2,6 +2,7 @@
 #include "share/atspre_staload.hats"
 staload "./../SATS/types.sats"
 staload "./../SATS/response.sats"
+staload _ = "./../DATS/headers.dats"
 staload H = "./../SATS/headers.sats"
 
 assume Resp = resp_

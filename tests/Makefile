@@ -2,35 +2,29 @@ ATSHOMEQ=$(PATSHOME)
 export PATSRELOCROOT=$(HOME)/ATS
 ATSCC=$(ATSHOMEQ)/bin/patscc
 ATSOPT=$(ATSHOMEQ)/bin/patsopt
-ATSCCFLAGS=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -IATS node_modules -I src -fPIC -O3
-LIBS=-lpthread -latslib -shared
-ifdef ATSLIB
-	LIBS := -L $(PATSHOME)/ccomp/atslib/lib -latslib
-endif
-ifdef PTHREAD
-	LIBS := -lpthread
-endif
-APP     = libats-http.so
+ATSCCFLAGS=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -IATS node_modules -IATS ../node_modules -I ../src -I node_modules/ats-sqlite3 -L ../node_modules/shared_vt/target -O3
+LIBS :=-latslib -lshared_vt -lpthread -lsqlite3 -lz
+APP     = tests
 EXEDIR  = target
-SRCDIR  = src
+SRCDIR  = .
 OBJDIR  = .build
-vpath %.dats src
-vpath %.dats src/DATS
-vpath %.sats src/SATS
+vpath %.dats .
 dir_guard=@mkdir -p $(@D)
-SRCS    := $(shell find $(SRCDIR) -name '*.dats' -type f -exec basename {} \;)
+SRCS    := tests.dats 
 OBJS    := $(patsubst %.dats,$(OBJDIR)/%.o,$(SRCS))
 .PHONY: clean setup
 all: $(EXEDIR)/$(APP)
+	make -C ..
 $(EXEDIR)/$(APP): $(OBJS) 
 	$(dir_guard)
 	$(ATSCC) $(ATSCCFLAGS) -o $@ $(OBJS) $(LIBS)
 .SECONDEXPANSION:
-$(OBJDIR)/%.o: %.dats #$$(wildcard src/SATS/$$*.sats)
+$(OBJDIR)/%.o: %.dats
 	$(dir_guard)
 	$(ATSCC) $(ATSCCFLAGS) -c $< -o $(OBJDIR)/$(@F) -cleanaft
 RMF=rm -f
 clean: 
+	make -C .. clean
 	$(RMF) $(EXEDIR)/$(APP)
 	$(RMF) $(OBJS)
 run: $(EXEDIR)/$(APP)

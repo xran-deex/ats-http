@@ -25,7 +25,6 @@ staload _ = "libats/DATS/stringbuf.dats"
 staload $EPOLL
 
 %{#
-#include "CATS/ats-http.cats"
 #include "zlib.h"
 %}
 
