@@ -9,15 +9,15 @@ fn http_write_err
 {n:nat}{l:addr | l > null}
 (
    pf: !bytes_v(l,n) | fd: int, buf: ptr(l), ntotal: size_t(n)
-): ssizeBtw(~1, n) = "mac#"
+): ssizeBtw(~1, n) = "ext#"
 
 fn http_read_err
 {n:nat}{l:addr | l > null}
 (
     pf: !bytes_v(l, n) | fd: int, s: ptr(l), size_t(n)
-): [m:int | m <= n] int(m) = "mac#"
+): [m:int | m <= n] int(m) = "ext#"
 
-fn reuseport(fd: int): void = "mac#"
+fn reuseport(fd: int): void = "ext#"
 
 vtypedef Handler = (!Req,!Resp) -<cloptr1> strptr
 
@@ -30,15 +30,16 @@ datavtype server_ = S of @{
     // thread_pool=$POOL.Pool
 }
 
-fn{} make_server(port: int): Server
-fn{} set_thread_count{n:nat}(server: !Server, threads: int(n)): void
-fn{} enable_gzip(server: !Server): void
-fn{} route(server: !Server, path: string): void
-fn{} run_server(server: !Server): void
-fn{} free_server(server: Server): void
-fn{} add_route(server: !Server, method: string, route: string, handler: Handler): void
-fn{} get(server: !Server, route: string, handler: Handler): void
-fn{} post(server: !Server, route: string, handler: Handler): void
-fn{} put(server: !Server, route: string, handler: Handler): void
-fn{} delete(server: !Server, route: string, handler: Handler): void
-fn{} head(server: !Server, route: string, handler: Handler): void
+fn make_server(port: int): Server
+fn set_thread_count{n:nat}(server: !Server, threads: int(n)): void
+fn enable_gzip(server: !Server): void
+fn route(server: !Server, path: string): void
+fn run_server(server: &Server): void
+fn free_server(server: Server):<!wrt> void
+// fn free_server_(server: Option_vt(server_)):<!wrt> void
+fn add_route(server: !Server, method: string, route: string, handler: Handler): void
+fn get(server: !Server, route: string, handler: Handler): void
+fn post(server: !Server, route: string, handler: Handler): void
+fn put(server: !Server, route: string, handler: Handler): void
+fn delete(server: !Server, route: string, handler: Handler): void
+fn head(server: !Server, route: string, handler: Handler): void

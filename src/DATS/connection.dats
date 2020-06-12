@@ -6,14 +6,15 @@ staload REQ = "./../SATS/request.sats"
 staload "./../SATS/types.sats" 
 staload _ = "./../DATS/request.dats"
 staload _ = "./../DATS/response.dats"
+#define ATS_DYNLOADFLAG 0
 
 assume Conn = conn_
 
 #define BUFSZ 2048
 
-fn{} isnotnewline(ch: char): bool = ch != '\n' && ch != '\r'
+fn isnotnewline(ch: char): bool = ch != '\n' && ch != '\r'
 
-fn{} method_from_string(s: strptr): Method = res where {
+fn method_from_string(s: strptr): Method = res where {
     val () = assertloc(strptr_isnot_null(s))
     val ss = $UNSAFE.castvwtp1{string}(s)
     val res = (case+ 0 of
@@ -26,7 +27,7 @@ fn{} method_from_string(s: strptr): Method = res where {
     val () = free(s)
 }
 
-implement{} method_to_string(m) = res where {
+implement method_to_string(m) = res where {
     val res = case+ m of
     | GET() => "GET"
     | POST() => "POST"
@@ -35,7 +36,7 @@ implement{} method_to_string(m) = res where {
     | DELETE() => "DELETE"
 }
 
-implement{} make_conn(fd) = conn where {
+implement make_conn(fd) = conn where {
     val conn = C(_)
     val C(c) = conn
     val () = c.fd := fd
@@ -47,21 +48,25 @@ implement{} make_conn(fd) = conn where {
     prval() = fold@conn
 }
 
-implement{} set_status(conn, status) = {
+implement set_status(conn, status) = {
     val+@C(c) = conn
     val () = c.status := status
     prval () = fold@conn
 }
 
-implement{} free_conn(conn) = {
-    val+~C(c) = conn
-    val () = stringbuf_free(c.req)
-    val () = stringbuf_free(c.res)
-    val () = $REQ.free_request(c.request)
-    val () = free_response(c.response)
+implement free_conn(conn) = {
+    val () = case+ conn of
+    | ~Some_vt(conn) => {
+        val+~C(c) = conn
+        val () = stringbuf_free(c.req)
+        val () = stringbuf_free(c.res)
+        val () = $REQ.free_request(c.request)
+        val () = free_response(c.response)
+    }
+    | ~None_vt() => ()
 }
 
-implement{} append_data(conn, buf, s, cnt) = {
+implement append_data(conn, buf, s, cnt) = {
     val+@C(c) = conn
     vtypedef state = @{ b=stringbuf, i = int }
     var e: state = @{ b=c.req, i = 0 }
@@ -80,7 +85,7 @@ implement{} append_data(conn, buf, s, cnt) = {
     prval () = fold@conn
 }
 
-implement{} parse_conn_from_buffer(conn, buf, s) = {
+implement parse_conn_from_buffer(conn, buf, s) = {
     val+@C(c) = conn
     val sb = stringbuf_make_nil_int(1024)
     datavtype parse_state = | METHOD | PATH | PROTO | HEADERKEY | HEADERVALUE | HEADERSPACE | NEWLINE | BODY | DONE
@@ -174,7 +179,7 @@ implement{} parse_conn_from_buffer(conn, buf, s) = {
     prval () = fold@conn
 }
 
-implement{} parse_conn(conn) = {
+implement parse_conn(conn) = {
     val+@C(c) = conn
     val req = stringbuf_truncout_all(c.req)
     val req = strptr2strnptr(req)
@@ -270,48 +275,48 @@ implement{} parse_conn(conn) = {
     prval () = fold@conn
 }
 
-implement{} clear_request_buffer(conn) = {
+implement clear_request_buffer(conn) = {
     val+@C(c) = conn
     val () = free(stringbuf_takeout_all(c.req))
     prval () = fold@conn
 }
 
-implement{} clear_response_buffer(conn) = {
+implement clear_response_buffer(conn) = {
     val+@C(c) = conn
     val () = free(stringbuf_takeout_all(c.res))
     prval () = fold@conn
 }
 
-implement{} call_handler(conn, func) = res where {
+implement call_handler(conn, func) = res where {
     val+@C(c) = conn
     val res = func(c.request, c.response)
     prval () = $UNSAFE.cast2void(func)
     prval () = fold@conn
 }
 
-implement{} get_routing_key(conn) = key where {
+implement get_routing_key(conn) = key where {
     val+@C(c) = conn
     val key = string0_append(method_to_string($REQ.get_method(c.request)), $REQ.get_path(c.request))
     prval () = fold@conn
 }
 
-fn{} add_content_type(sb: !stringbuf, ty: string): int = let
+fn add_content_type(sb: !stringbuf, ty: string): int = let
     val _ = stringbuf_insert_string(sb, "Content-Type: ")
     val _ = stringbuf_insert_string(sb, ty)
 in
     stringbuf_insert_string(sb, "\r\n")
 end
 
-fn{} add_keep_alive(sb: !stringbuf): int =
+fn add_keep_alive(sb: !stringbuf): int =
     stringbuf_insert_string(sb, "Connection: Keep-Alive\r\n")
 
-fn{} add_http_1_1(sb: !stringbuf): int =
+fn add_http_1_1(sb: !stringbuf): int =
     stringbuf_insert_string(sb, "HTTP/1.1 ")
 
-fn{} add_200(sb: !stringbuf): int =
+fn add_200(sb: !stringbuf): int =
     stringbuf_insert_string(sb, "200 OK\r\n")
 
-fn{} add_status_code(sb: !stringbuf, code: int): int = res where {
+fn add_status_code(sb: !stringbuf, code: int): int = res where {
     val res = stringbuf_insert_int(sb, code)
     val res = case+ code of
     | 200 => stringbuf_insert_string(sb, " OK\r\n")
@@ -320,10 +325,10 @@ fn{} add_status_code(sb: !stringbuf, code: int): int = res where {
     | _ => stringbuf_insert_string(sb, " UNKNOWN\r\n")
 }
 
-fn{} add_gzip(sb: !stringbuf): int =
+fn add_gzip(sb: !stringbuf): int =
     stringbuf_insert_string(sb, "Content-Encoding: deflate\r\n")
 
-fn{} add_content_length(sb: !stringbuf, content: !strptr): int = let
+fn add_content_length(sb: !stringbuf, content: !strptr): int = let
     val contentLen = strptr_length(content)
     val _ = stringbuf_insert_string(sb, "Content-Length: ")
     val _ = stringbuf_insert_int(sb, $UNSAFE.cast{int}contentLen)
@@ -331,36 +336,36 @@ in
     stringbuf_insert_string(sb, "\r\n")
 end
 
-fn{} add_content_length_from_int(sb: !stringbuf, contentLen: int): int = let
+fn add_content_length_from_int(sb: !stringbuf, contentLen: int): int = let
     val _ = stringbuf_insert_string(sb, "Content-Length: ")
     val _ = stringbuf_insert_int(sb, contentLen)
 in
     stringbuf_insert_string(sb, "\r\n")
 end
 
-fn{} finish_headers(sb: !stringbuf): int =
+fn finish_headers(sb: !stringbuf): int =
     stringbuf_insert_string(sb, "\r\n")
 
-fn{} add_content(sb: !stringbuf, content: strptr): void = let
+fn add_content(sb: !stringbuf, content: strptr): void = let
     val _ = stringbuf_insert_string(sb, $UNSAFE.castvwtp1{string}(content))
 in
     free(content)
 end
 
-fn{} add_content_gzip(sb: !stringbuf, content: !strptr, sz: int): void = {
+fn add_content_gzip(sb: !stringbuf, content: !strptr, sz: int): void = {
     val [n:int] size = $UNSAFE.cast{[n:int]size_t(n)}(sz)
     val c = $UNSAFE.castvwtp1{string(n)}(content)
     val _ = stringbuf_insert_strlen(sb, c, size)
 }
 
-fun{} compress_content(content: strptr, compressed: !ptr, sz: int): int = res where {
+fn compress_content(content: strptr, compressed: !ptr, sz: int): int = res where {
     var destLen: lint = g0int2int_int_lint BUFSZ
     val result = $LIBZ.compress(compressed, destLen, $UNSAFE.castvwtp1{ptr}content, g0int2int_int_lint sz)
     val () = free(content)
     val res = $UNSAFE.cast{int}destLen
 }
 
-implement{} create_response(conn, res) = {
+implement create_response(conn, res) = {
     val+@C(c) = conn
     val _ = add_http_1_1(c.res)
     val _ = add_status_code(c.res, get_status_code(c.response))
@@ -372,7 +377,7 @@ implement{} create_response(conn, res) = {
     prval () = fold@conn
 }
 
-implement{} create_response_gzip(conn, res) = {
+implement create_response_gzip(conn, res) = {
     val+@C(c) = conn
     val _ = add_http_1_1(c.res)
     val _ = add_status_code(c.res, get_status_code(c.response))
@@ -390,7 +395,7 @@ implement{} create_response_gzip(conn, res) = {
     prval () = fold@conn
 }
 
-implement{} get_buffer(conn, size) = res where {
+implement get_buffer(conn, size) = res where {
     val+@C(c) = conn
     val res = stringbuf_takeout_strbuf(c.res, size)
     prval () = fold@conn

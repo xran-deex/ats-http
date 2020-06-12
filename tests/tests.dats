@@ -7,12 +7,13 @@ staload $RESP
 staload $SQLITE
 
 implement main(argc, argv) = 0 where {
-    val server = make_server(8888)
+    var server = make_server(8888)
     val () = set_thread_count(server, 6)
     // val () = enable_gzip(server)
 
     val () = get(server, "/", lam (req,resp) =<cloptr1> res where {
         val in_opt = fileref_open_opt("index.html", file_mode_r)
+        val () = set_content_type(resp, "text/html")
         val res = (case+ in_opt of
                 | ~Some_vt(inp) => res where {
                     val () = set_status_code(resp, 200)
@@ -29,7 +30,7 @@ implement main(argc, argv) = 0 where {
     val () = get(server, "/hello", lam (req,resp) =<cloptr1> res where {
         val () = set_status_code(resp, 200)
         val () = set_content_type(resp, "text/plain")
-        val res = copy("Hello world")
+        val res = copy("Hello world!!!!!!!!!!!!")
     })
 
     val () = get(server, "/database", lam (req, resp) =<cloptr1> res where {

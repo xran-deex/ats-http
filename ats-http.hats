@@ -7,3 +7,7 @@ staload _ = "./src/DATS/connection.dats"
 staload HTTP = "./src/SATS/http.sats"
 staload REQ = "./src/SATS/request.sats"
 staload RESP = "./src/SATS/response.sats"
+
+%{#
+#include "CATS/ats-http.cats"
+%}

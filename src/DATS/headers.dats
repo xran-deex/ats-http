@@ -1,11 +1,14 @@
+#include "share/atspre_define.hats"
+#include "share/atspre_staload.hats"
 staload "./../SATS/headers.sats"
 #include "hashtable-vt/hashtable_vt.hats"
 staload "./../SATS/http.sats"
 staload "./../SATS/types.sats" 
+#define ATS_DYNLOADFLAG 0
 
 assume Headers = headers_
 
-implement{} parse_headers(buf) = headers where {
+implement parse_headers(buf) = headers where {
     val h = $HT.hashtbl_make_nil(i2sz 100)
     val-~None_vt() = $HT.hashtbl_insert_opt(h, copy("Connection"), copy("Keep-Alive"))
     val headers = H(@{
@@ -13,14 +16,14 @@ implement{} parse_headers(buf) = headers where {
     })
 }
 
-implement{} new_headers() = headers where {
+implement new_headers() = headers where {
     val h = $HT.hashtbl_make_nil(i2sz 100)
     val headers = H(@{
         map = h
     })
 }
 
-implement{} free_headers(headers) = {
+implement free_headers(headers) = {
     val+~H(h) = headers
     val () = $HT.hashtbl_free(h.map) where {
         implement $HT.hashtbl_free$clear<strptr,strptr>(k, v) = {
@@ -30,7 +33,7 @@ implement{} free_headers(headers) = {
     }
 }
 
-implement{} get_header_value(headers, header) = value where {
+implement get_header_value(headers, header) = value where {
     val+@H(h) = headers
     val key = $UNSAFE.castvwtp1{strptr} header
     val ptr = $HT.hashtbl_search_ref(h.map, key)
@@ -40,7 +43,7 @@ implement{} get_header_value(headers, header) = value where {
     prval() = fold@headers
 }
 
-implement{} put_header_value(headers, key, value) = {
+implement put_header_value(headers, key, value) = {
     val+@H(h) = headers
     val opt = $HT.hashtbl_takeout_opt(h.map, key)
     val () = case+ opt of
@@ -54,7 +57,7 @@ implement{} put_header_value(headers, key, value) = {
     prval() = fold@headers
 }
 
-implement{} print_headers(headers) = {
+implement print_headers(headers) = {
     val+@H(h) = headers
     val () = $HT.hashtbl_foreach(h.map) where {
         implement $HT.hashtbl_foreach$fwork<strptr,strptr><void>(k, v, e) = {

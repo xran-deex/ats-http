@@ -15,6 +15,7 @@
     "ats-epoll": "git+http://ubuntu-netfu:3000/randy.valis/ats-epoll",
     "ats-libz": "git+http://ubuntu-netfu:3000/randy.valis/ats-libz",
     "ats-threadpool": "git+http://ubuntu-netfu:3000/randy.valis/ats-threadpool",
-    "hashtable-vt": "git+http://ubuntu-netfu:3000/randy.valis/ats-hashtable-vt"
+    "hashtable-vt": "git+http://ubuntu-netfu:3000/randy.valis/ats-hashtable-vt",
+    "ats-pthread-extensions": "git+http://ubuntu-netfu:3000/randy.valis/ats-pthread-extensions"
   }
 }

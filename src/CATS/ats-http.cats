@@ -1,18 +1,6 @@
 #ifndef ATS_HTTP
 #define ATS_HTTP
 
-char* string_from_bytes(void* p, int n) {
-    char* temp = (char*)ATS_CALLOC(n + 1, sizeof(char));
-    strncpy(temp, (char*)p, n);
-    temp[n] = '\0';
-    return temp;
-}
-void string_to_bytes(char* p, void* buf, size_t n) {
-    memcpy(buf, p, n);
-}
-void* string_to_bytes2(char* p) {
-    return p;
-}
 int http_write_err(int fd, void* buf, size_t n) {
     return write(fd, buf, n);
 }

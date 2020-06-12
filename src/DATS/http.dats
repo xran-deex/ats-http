@@ -8,13 +8,9 @@ staload "./../SATS/connection.sats"
 staload _ = "./../DATS/connection.dats"
 #define ATS_DYNLOADFLAG 0
 
-%{#
-#include "CATS/ats-http.cats"
-%}
-
 assume Server = shared(server_)
 
-fn{} get_server(port: int): [n:int|n>= ~1] int(n) = res where {
+fn get_server(port: int): [n:int|n>= ~1] int(n) = res where {
     val inport = in_port_nbo(port)
     val inaddr = in_addr_hbo2nbo (INADDR_ANY)
     //
@@ -29,14 +25,14 @@ fn{} get_server(port: int): [n:int|n>= ~1] int(n) = res where {
     val res = sfd
 }
 
-fn{} listen{n:int|n>=0}(sfd: int(n)): void = {
+fn listen{n:int|n>=0}(sfd: int(n)): void = {
     val _ = setnonblocking(sfd)
     val () = $extfcall(void, "atslib_libats_libc_listen_exn", sfd, SOMAXCONN) 
 }
 
 #define BUFSZ 1024
 
-fn{} write_response(conn: !Conn, fd: int): int = ret where {
+fn write_response(conn: !Conn, fd: int): int = ret where {
     var size: size_t?
     val (pf, pff | buf) = get_buffer(conn, size)
     val () = assertloc(size >= 0)
@@ -46,7 +42,7 @@ fn{} write_response(conn: !Conn, fd: int): int = ret where {
     prval () = pff(pf)
 }
 
-fn{} get_handler(serve: !Server, conn: !Conn): Handler = handler where {
+fn get_handler(serve: !Server, conn: !Conn): Handler = handler where {
     val (pfs | server) = shared_lock(serve)
     val+@S(s) = server
     val key = get_routing_key(conn)
@@ -67,7 +63,7 @@ fn{} get_handler(serve: !Server, conn: !Conn): Handler = handler where {
     val () = shared_unlock(pfs | serve, server)
 }
 
-fn{} set_response(serve: !Server, conn: !Conn, content: strptr): void = {
+fn set_response(serve: !Server, conn: !Conn, content: strptr): void = {
     val (pfs | server) = shared_lock(serve)
     val+@S(s) = server
     val () = if s.enable_gzip 
@@ -79,7 +75,7 @@ fn{} set_response(serve: !Server, conn: !Conn, content: strptr): void = {
     val () = shared_unlock(pfs | serve, server)
 }
 
-fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
+fun do_read(e: !Epoll(Server), w: !Watcher(Server, Conn), evs: uint): void = () where {
     val fd = watcher_get_fd(w)
     val isedge = (evs land EPOLLET) > 0
     val isread = (evs land EPOLLIN) > 0
@@ -87,7 +83,7 @@ fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
     val iserr = (evs land EPOLLERR) > 0
     val isclose = (evs land (EPOLLRDHUP lor EPOLLHUP)) > 0
     val () = if isread && ~iserr then {
-        fun loop(e: !Epoll, w: !Watcher): void = {
+        fun loop(e: !Epoll(Server), w: !Watcher(Server, Conn)): void = {
             var buf with pf = @[byte][BUFSZ](int2byte0 0)
             val num_read = http_read_err(pf | fd, addr@buf, i2sz (BUFSZ))
 
@@ -123,8 +119,8 @@ fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
     }
 
     val () = if iswrite && ~iserr then { 
-        fun loop(e: !Epoll, w: !Watcher): void = {
-            var buf = @[byte][1024](int2byte0 0)
+        fun loop(e: !Epoll(Server), w: !Watcher(Server, Conn)): void = {
+            var buf = @[byte][BUFSZ](int2byte0 0)
             val (pf2 | opt) = watcher_data_takeout<Conn>(w)
             val-~Some_vt(st) = opt
 
@@ -145,15 +141,15 @@ fun{} do_read(e: !Epoll, w: !Watcher, evs: uint): void = () where {
     }
 }
 
-fun{} accept_conn(e: !Epoll, w: !Watcher, evs: uint): void = () where {
+fun accept_conn(e: !Epoll(Server), w: !Watcher(Server,Server), evs: uint): void = () where {
     val fd = watcher_get_fd(w)
-    fun loop(e: !Epoll, w: !Watcher): void = {
+    fun loop(e: !Epoll(Server), w: !Watcher(Server,Server)): void = {
         val conn = $extfcall(int, "accept", fd, 0, 0)
         val conn = g1ofg0 conn
         val () = if conn > 0 then () where {
             val _ = setnonblocking(conn)
             val c = make_conn(conn)
-            val w2 = make_watcher3<Conn>(conn, do_read, c, free_conn)
+            val w2 = make_watcher1<Conn>(conn, do_read, c, free_conn)
             val () = register_watcher(e, w2, EPOLLIN lor EPOLLET)
             val () = loop(e, w)
         }
@@ -161,7 +157,7 @@ fun{} accept_conn(e: !Epoll, w: !Watcher, evs: uint): void = () where {
     val () = loop(e, w)
 }
 
-fn{} make_threads(server: !Server): void = {
+fn make_threads(server: !Server): void = {
     // val+@S(s) = server
     // val fd = s.server_fd
     // prval () = fold@server
@@ -173,7 +169,7 @@ fn{} make_threads(server: !Server): void = {
     // prval () = fold@server
 }
 
-implement{} make_server(port) = sh where {
+implement make_server(port) = sh where {
     val s = get_server(port)
     val () = assertloc(s > 0)
     val () = println!("Server running at http://localhost:", port)
@@ -193,7 +189,7 @@ implement{} make_server(port) = sh where {
 
 implement gclear_ref<ptr>(x) = $UNSAFE.cast2void(x)
 
-fn{} free_server_(server: server_): void = {
+fn free_server_(server: server_):<!wrt> void = {
     val+~S(s) = server
     // val () = $POOL.stop_pool(s.thread_pool)
     val () = list_vt_free(s.threads)
@@ -206,8 +202,8 @@ fn{} free_server_(server: server_): void = {
 }
 
 // handles the SIGPIPE signal so we don't crash
-fn{} ignore_sigpipe(e: !Epoll): void = {
-    fn handle_signal(e: !Epoll, w: !Watcher, evs: uint): void = () where {
+fn ignore_sigpipe(e: !Epoll(Server)): void = {
+    fn handle_signal(e: !Epoll(Server), w: !Watcher(Server, void), evs: uint): void = () where {
         // just ignore it
     }
     var s: sigset_t?
@@ -227,7 +223,13 @@ fn{} ignore_sigpipe(e: !Epoll): void = {
     }
 }
 
-implement{} run_server(serve) = {
+fn free_server_opt(opt: Option_vt(Server)):<!wrt> void = {
+    val () = case+ opt of
+    | ~Some_vt(ref) => free_server(ref)
+    | ~None_vt() => ()
+}
+
+implement run_server(serve) = {
     val (pf | server) = shared_lock(serve)
     val+@S(s) = server
     val fd = s.server_fd
@@ -238,14 +240,15 @@ implement{} run_server(serve) = {
         val () = if i > 0 then {
             val server_ref = shared_ref(sh0)
             val tid = athread_create_cloptr_join_exn(llam() => {
-                val e = make_epoll2<Server>(server_ref)
+                val ref2 = shared_ref(server_ref)
+                val e = make_epoll1<Server>(server_ref)
                 val () = ignore_sigpipe(e)
                 val () = listen(fd)
-                val watcher = make_watcher2<Server>(fd, accept_conn, server_ref)
+                val watcher = make_watcher1<Server>(fd, accept_conn, ref2, free_server_opt)
                 val () = register_watcher(e, watcher, EPOLLIN lor EPOLLET)
                 val () = run(e)
-                val () = free_epoll(e)
-                val () = free_server(server_ref)
+                val s = free_epoll(e)
+                val () = free_server_opt(s)
             })
             val () = assertloc(list_vt_length(ls) >= 0)
             val () = ls := list_vt_cons(tid, ls)
@@ -254,7 +257,8 @@ implement{} run_server(serve) = {
     }
     var threads = list_vt_nil()
     val () = loop(threadCount - 1, threads, serve)
-    val e = make_epoll2<Server>(serve)
+    val server_ref = shared_ref(serve)
+    val e = make_epoll1<Server>(serve)
     // ignore broken pipes
     val () = ignore_sigpipe(e)
     val () = list_vt_foreach(threads) where {
@@ -265,21 +269,25 @@ implement{} run_server(serve) = {
     val () = list_vt_free(threads)
     val () = if threadCount = 1 then {
         val () = listen(fd)
-        val watcher = make_watcher2<Server>(fd, accept_conn, serve)
+        val watcher = make_watcher1<Server>(fd, accept_conn, server_ref, free_server_opt)
         val () = register_watcher(e, watcher, EPOLLIN lor EPOLLET)
         val () = run(e)
+    } else {
+        val-~None_vt() = shared_unref(server_ref)
     }
-    val () = free_epoll(e)
+    val-~Some_vt(s) = free_epoll(e)
+    val () = serve := s
+    // val () = free_server_opt(s)
 }
 
-implement{} free_server(server) = {
-    val opt = shared_unref(server)
+implement free_server(server) = {
+    val opt = $effmask_all(shared_unref(server))
     val () = case+ opt of
     | ~Some_vt(s) => free_server_(s)
     | ~None_vt() => ()
 }
 
-implement{} set_thread_count(serve, cnt) = {
+implement set_thread_count(serve, cnt) = {
     val (pf | server) = shared_lock(serve)
     val+@S(s) = server
     val () = s.threadCount := cnt
@@ -287,7 +295,7 @@ implement{} set_thread_count(serve, cnt) = {
     val () = shared_unlock(pf | serve, server)
 }
 
-implement{} enable_gzip(serve) = {
+implement enable_gzip(serve) = {
     val (pf | server) = shared_lock(serve)
     val+@S(s) = server
     val () = s.enable_gzip := true
@@ -295,7 +303,7 @@ implement{} enable_gzip(serve) = {
     val () = shared_unlock(pf | serve, server)
 }
 
-implement{} add_route(serve, method, route, handler) = {
+implement add_route(serve, method, route, handler) = {
     val (pf | server) = shared_lock(serve)
     val+@S(s) = server
     val key = string0_append(method, route)
@@ -310,8 +318,8 @@ implement{} add_route(serve, method, route, handler) = {
     val () = shared_unlock(pf | serve, server)
 }
 
-implement{} get(serve, route, handler) = add_route(serve, "GET", route, handler)
-implement{} post(serve, route, handler) = add_route(serve, "POST", route, handler)
-implement{} put(serve, route, handler) = add_route(serve, "PUT", route, handler)
-implement{} head(serve, route, handler) = add_route(serve, "HEAD", route, handler)
-implement{} delete(serve, route, handler) = add_route(serve, "DELETE", route, handler)
+implement get(serve, route, handler) = add_route(serve, "GET", route, handler)
+implement post(serve, route, handler) = add_route(serve, "POST", route, handler)
+implement put(serve, route, handler) = add_route(serve, "PUT", route, handler)
+implement head(serve, route, handler) = add_route(serve, "HEAD", route, handler)
+implement delete(serve, route, handler) = add_route(serve, "DELETE", route, handler)

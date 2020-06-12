@@ -19,7 +19,7 @@ staload _ = "libats/DATS/stringbuf.dats"
 #include "ats-epoll/ats-epoll.hats"
 #include "shared_vt/ats-shared-vt.hats"
 #include "hashtable-vt/hashtable_vt.hats"
-#include "ats-threadpool/ats-threadpool.hats"
+// #include "ats-threadpool/ats-threadpool.hats"
 #include "ats-libz/ats-libz.hats"
 
 staload $EPOLL
