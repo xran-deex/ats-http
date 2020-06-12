@@ -4,7 +4,7 @@ ATSOPT=$(PATSHOME)/bin/patsopt
 ATSFLAGS=-IATS node_modules -IATS ../node_modules
 
 CFLAGS=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -I ../src -I node_modules/ats-sqlite3 -L ../node_modules/shared_vt/target -O3
-LIBS=-L $(ARMLIBS)/ -lpthread -latslib
+LIBS=-L $(ARMLIBS)/ -L $(PATSHOME)/ccomp/atslib/lib -lpthread -latslib
 
 APP     = libats-http.a
 ifndef STATICLIB
