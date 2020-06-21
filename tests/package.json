@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "ats-sqlite3": "git+http://ubuntu-netfu:3000/randy.valis/ats-sqlite3"
+    "ats-sqlite3": "git+https://github.com/xran-deex/ats-sqlite3"
   }
 }
