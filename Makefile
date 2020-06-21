@@ -52,7 +52,7 @@ node_modules:
 	npm install
 
 deps: node_modules
-	+OUTDIR=$(EXEDIR) make -C node_modules/shared_vt
+	+OUTDIR=$(EXEDIR) make -C node_modules/ats-shared-vt
 	+OUTDIR=$(EXEDIR) make -C node_modules/ats-epoll
 
 RMF=rm -f
@@ -60,7 +60,7 @@ RMF=rm -f
 clean: 
 	$(RMF) $(EXEDIR)/$(APP)
 	$(RMF) $(OBJS)
-	+OUTDIR=$(EXEDIR) make -C node_modules/shared_vt clean
+	+OUTDIR=$(EXEDIR) make -C node_modules/ats-shared-vt clean
 	+OUTDIR=$(EXEDIR) make -C node_modules/ats-epoll clean
 	+OUTDIR=$(EXEDIR) make -C tests clean
 
