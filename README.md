@@ -1,3 +1,5 @@
+[![Build Status](https://cloud.drone.io/api/badges/xran-deex/ats-http/status.svg)](https://cloud.drone.io/xran-deex/ats-http)
+
 # ats-http
 
 ## Dependencies
