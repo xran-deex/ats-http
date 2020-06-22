@@ -4,7 +4,9 @@
 
 ## Quick start (Docker)
 ```bash
-docker run -it --rm -v $PWD:/code -p 8888:8888 -e "STATICLIB=1" -e "OUTDIR=/code/.libs" xrandeex/ats2-libz:0.4.0 make -C /code runtest
+docker run -it --rm -v $PWD:/code -p 8888:8888 \
+-e "STATICLIB=1" -e "OUTDIR=/code/.libs" xrandeex/ats2-libz:0.4.0 \
+make -C /code runtest
 ```
 
 ## Dependencies
