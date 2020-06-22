@@ -27,10 +27,9 @@ implement main(argc, argv) = 0 where {
                 }): strptr
     })
 
-    val () = get(server, "/hello", lam (req,resp) =<cloptr1> res where {
+    val () = get(server, "/hello", lam (req,resp) =<cloptr1> copy("Hello World") where {
         val () = set_status_code(resp, 200)
         val () = set_content_type(resp, "text/plain")
-        val res = copy("Hello world")
     })
 
     val () = get(server, "/database", lam (req, resp) =<cloptr1> res where {
