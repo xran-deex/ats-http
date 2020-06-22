@@ -18,11 +18,10 @@ sudo apt install libsqlite3-dev
 ```
 
 ## Example
-``` java
-val () = get(server, "/hello", lam (req,resp) =<cloptr1> res where {
+``` ats
+val () = get(server, "/hello", lam (req,resp) =<cloptr1> copy("Hello World") where {
     val () = set_status_code(resp, 200)
     val () = set_content_type(resp, "text/plain")
-    val res = copy("Hello world")
 })
 ```
 
@@ -35,15 +34,12 @@ Build a static library
 ``` bash
 STATICLIB=1 make
 ```
-Build an arm64 static library
-``` bash
-ARMLIBS=path_to_arm_libs CC=aarch64-linux-gnu-gcc STATICLIB=1 make
-```
-Build the test app
-``` bash
-STATICLIB=1 make test
-```
+
 Run the test app
 ```bash
 ./tests/target/tests
+
+or
+
+STATICLIB=1 make runtest
 ```
