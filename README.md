@@ -21,10 +21,28 @@ sudo apt install libsqlite3-dev
 
 ## Example
 ``` ats
-val () = get(server, "/hello", lam (req,resp) =<cloptr1> copy("Hello World") where {
-    val () = set_status_code(resp, 200)
-    val () = set_content_type(resp, "text/plain")
-})
+#include "../ats-http.hats"
+staload "libats/libc/SATS/string.sats"
+
+staload $REQ
+staload $RESP
+
+implement main(argc, argv) = 0 where {
+    // make the server
+    var server = make_server(8888)
+    // use 6 threads
+    val () = set_thread_count(server, 6)
+
+    // setup a get response handler
+    val () = get(server, "/hello", lam (req,resp) =<cloptr1> copy("Hello World") where {
+        val () = set_status_code(resp, 200)
+        val () = set_content_type(resp, "text/plain")
+    })
+
+    // run the server
+    val () = run_server(server)
+    val () = free_server(server)
+}
 ```
 
 ## Build
