@@ -1,7 +1,8 @@
-#include "../ats-http.hats"
+#include "ats-http.hats"
 staload "libats/libc/SATS/string.sats"
-#include "ats-sqlite3/ats-sqlite3.hats"
+#include "ats-sqlite3.hats"
 
+staload $HTTP
 staload $REQ
 staload $RESP
 staload $SQLITE

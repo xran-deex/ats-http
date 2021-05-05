@@ -1,52 +1,42 @@
 ATSCC=$(PATSHOME)/bin/patscc
 ATSOPT=$(PATSHOME)/bin/patsopt
 
-ATSFLAGS=-IATS node_modules -IATS ../node_modules
+ATSFLAGS+=
 
-CFLAGS=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -I ../src -I node_modules/ats-sqlite3 -O3 -fpic
+CFLAGS+=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -O2 -I src $(INCLUDES) -fno-stack-protector
+LDFLAGS+=-L $(PATSHOME)/ccomp/atslib/lib -L /usr/lib/aarch64-linux-gnu
+LIBS+=-latslib
 
-LIBS :=-L $(ARMLIBS)/ -L $(PATSHOME)/ccomp/atslib/lib -L ../.libs -lats-http -lats-shared-vt -lpthread -lsqlite3 -lz -lats-epoll -latslib
+NAME := tests
+SRCDIR  := 
+vpath %.dats src
+vpath %.dats src/DATS
+vpath %.sats src/SATS
+SRCS    := $(shell find $(SRCDIR) -name '*.dats' -type f -exec basename {} \;)
+DDIR    :=  build
+OBJ    := $(patsubst %.dats,$(DDIR)/%.o,$(SRCS))
 
-APP     = tests
-EXEDIR  = target
-SRCDIR  = .
-OBJDIR  = .build
-vpath %.dats .
-dir_guard=@mkdir -p $(@D)
-SRCS    := tests.dats 
-OBJS    := $(patsubst %.dats,$(OBJDIR)/%.o,$(SRCS))
+.PHONY: all clean fclean re 
 
-.PHONY: clean setup
+all: $(NAME)
 
-all: $(EXEDIR)/$(APP)
+$(NAME): $(OBJ)
+	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
 
-$(EXEDIR)/$(APP): $(OBJS)
-	$(dir_guard)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
+$(DDIR)/%.o: %.c | $(DDIR)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-.SECONDEXPANSION:
-$(OBJDIR)/%.o: %.c
-	$(dir_guard)
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$(@F) 
+%.c: %.dats
+	$(ATSOPT) $(ATSFLAGS) -o $(@F) -d $<
 
-$(OBJDIR)/%.c: %.dats node_modules
-	$(dir_guard)
-	$(ATSOPT) $(ATSFLAGS) -o $(OBJDIR)/$(@F) -d $<
+$(SDIR) $(DDIR):
+	@mkdir $@
 
-RMF=rm -f
+clean:
+	$(RM) -r $(SDIR) $(DDIR)
 
-clean: 
-	$(RMF) $(EXEDIR)/$(APP)
-	$(RMF) $(OBJS)
-	$(RMF) ./**/*.c
+fclean: clean
+	$(RM) $(NAME)
 
-run: $(EXEDIR)/$(APP)
-	LD_LIBRARY_PATH=../.libs ./$(EXEDIR)/$(APP)
+re: fclean all
 
-.SILENT: run
-
-node_modules:
-	npm install
-
-deps: node_modules
-	+OUTDIR=$(EXEDIR) make -C node_modules/ats-sqlite3

@@ -1,7 +1,7 @@
 #include "share/atspre_define.hats"
 #include "share/atspre_staload.hats"
 staload "./../SATS/headers.sats"
-#include "hashtable-vt/hashtable_vt.hats"
+#include "hashtable_vt.hats"
 staload "./../SATS/http.sats"
 staload "./../SATS/types.sats" 
 #define ATS_DYNLOADFLAG 0

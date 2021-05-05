@@ -7,6 +7,9 @@ staload "./../SATS/response.sats"
 staload "./../SATS/connection.sats"
 staload _ = "./../DATS/connection.dats"
 #define ATS_DYNLOADFLAG 0
+#define ATS_PACKNAME "ats-http"
+
+staload $SHARED
 
 assume Server = shared(server_)
 

@@ -1,71 +1,54 @@
 ATSCC=$(PATSHOME)/bin/patscc
 ATSOPT=$(PATSHOME)/bin/patsopt
 
-ATSFLAGS=-IATS node_modules -IATS ../node_modules
+ATSFLAGS+=-IATS src
 
-CFLAGS=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -I ../src -I node_modules/ats-sqlite3 -L ../node_modules/shared_vt/target -O3
-LIBS=-L $(ARMLIBS)/ -L $(PATSHOME)/ccomp/atslib/lib -lpthread -latslib
+CFLAGS+=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -O2 -I src -fno-stack-protector
+LDFLAGS+=-L $(PATSHOME)/ccomp/atslib/lib
+LIBS+=-latslib
 
-APP     = libats-http.a
-ifndef STATICLIB
-	CFLAGS+=-fpic
-	LIBS+=-shared
-	APP     = libats-http.so
-endif
-
-EXEDIR  = $(PWD)/.libs
-ifdef OUTDIR
-	EXEDIR = $(OUTDIR)
-endif
-SRCDIR  = src
-OBJDIR  = .build
+NAME := libats-http
+SNAME   :=  $(NAME).a
+DNAME   :=  $(NAME).so
+SRCDIR  := src
 vpath %.dats src
 vpath %.dats src/DATS
 vpath %.sats src/SATS
-dir_guard=@mkdir -p $(@D)
 SRCS    := $(shell find $(SRCDIR) -name '*.dats' -type f -exec basename {} \;)
-OBJS    := $(patsubst %.dats,$(OBJDIR)/%.o,$(SRCS))
+SDIR    :=  build-static
+SOBJ    := $(patsubst %.dats,$(SDIR)/%.o,$(SRCS))
+DDIR    :=  build-shared
+DOBJ    := $(patsubst %.dats,$(DDIR)/%.o,$(SRCS))
 
-.PHONY: clean setup
+.PHONY: all clean fclean re 
 
-all: $(EXEDIR)/$(APP)
+all: $(SNAME) $(DNAME)
 
-$(EXEDIR)/$(APP): $(OBJS) deps
-	$(dir_guard)
-ifdef STATICLIB
-	ar rcs $@ $(OBJS)
-endif
-ifndef STATICLIB
-	$(CC) $(CFLAGS) -o $(EXEDIR)/$(APP) $(OBJS) $(LIBS)
-endif
+$(SNAME): $(SOBJ)
+	$(AR) $(ARFLAGS) $@ $^
 
-.SECONDEXPANSION:
-$(OBJDIR)/%.o: %.c
-	$(dir_guard)
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$(@F) 
+$(DNAME): CFLAGS += -fPIC
+$(DNAME): LDFLAGS += -shared
+$(DNAME): $(DOBJ)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(OBJDIR)/%.c: %.dats node_modules
-	$(dir_guard)
-	$(ATSOPT) $(ATSFLAGS) -o $(OBJDIR)/$(@F) -d $<
+$(SDIR)/%.o: %.c | $(SDIR)
+	$(CC) $(CFLAGS) -o $@ -c $<
 
-node_modules:
-	npm install
+$(DDIR)/%.o: %.c | $(DDIR)
+	$(CC) $(CFLAGS) -o $@ -c $<
 
-deps: node_modules
-	+OUTDIR=$(EXEDIR) make -C node_modules/ats-shared-vt
-	+OUTDIR=$(EXEDIR) make -C node_modules/ats-epoll
+%.c: %.dats
+	$(ATSOPT) $(ATSFLAGS) -o $(@F) -d $<
 
-RMF=rm -f
+$(SDIR) $(DDIR):
+	@mkdir $@
 
-clean: 
-	$(RMF) $(EXEDIR)/$(APP)
-	$(RMF) $(OBJS)
-	+OUTDIR=$(EXEDIR) make -C node_modules/ats-shared-vt clean
-	+OUTDIR=$(EXEDIR) make -C node_modules/ats-epoll clean
-	+OUTDIR=$(EXEDIR) make -C tests clean
+clean:
+	$(RM) -r $(SDIR) $(DDIR)
 
-test: all
-	+make -C tests
+fclean: clean
+	$(RM) $(SNAME) $(DNAME)
 
-runtest: test
-	+make -C tests run
+re: fclean all
+

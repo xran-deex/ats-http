@@ -15,12 +15,13 @@ staload "libats/libc/SATS/netinet/in.sats"
 staload "libats/SATS/stringbuf.sats"
 staload _ = "libats/DATS/stringbuf.dats"
 
-#include "ats-pthread-extensions/ats-pthread-ext.hats"
-#include "ats-epoll/ats-epoll.hats"
-#include "ats-shared-vt/ats-shared-vt.hats"
-#include "hashtable-vt/hashtable_vt.hats"
-// #include "ats-threadpool/ats-threadpool.hats"
-#include "ats-libz/ats-libz.hats"
+#include "ats-pthread-ext.hats"
+#include "ats-epoll.hats"
+#include "ats-shared-vt.hats"
+#include "hashtable_vt.hats"
+#include "ats-threadpool.hats"
+#include "ats-libz.hats"
+#include "ats-shared-vt.hats"
 
 staload $EPOLL
 

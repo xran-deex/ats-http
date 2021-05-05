@@ -1,3 +1,4 @@
+#define ATS_PACKNAME "ats-http"
 #include "share/atspre_define.hats"
 #include "share/atspre_staload.hats"
 

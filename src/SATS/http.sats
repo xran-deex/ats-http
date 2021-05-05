@@ -1,9 +1,10 @@
 #include "share/atspre_define.hats"
 #include "share/atspre_staload.hats"
-#include "ats-epoll/ats-epoll.hats"
-#include "hashtable-vt/hashtable_vt.hats"
-#include "ats-threadpool/ats-threadpool.hats"
+#include "ats-epoll.hats"
+#include "hashtable_vt.hats"
+#include "ats-threadpool.hats"
 staload "./../SATS/types.sats" 
+#define ATS_PACKNAME "ats-http-http"
 
 fn http_write_err
 {n:nat}{l:addr | l > null}
