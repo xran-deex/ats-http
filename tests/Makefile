@@ -3,9 +3,9 @@ ATSOPT=$(PATSHOME)/bin/patsopt
 
 ATSFLAGS+=
 
-CFLAGS+=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -O2 -I src $(INCLUDES) -fno-stack-protector
-LDFLAGS+=-L $(PATSHOME)/ccomp/atslib/lib -L /usr/lib/aarch64-linux-gnu
-LIBS+=-latslib
+CFLAGS+=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -O2 -I src $(INCLUDES)
+LDFLAGS+=-L $(PATSHOME)/ccomp/atslib/lib
+LIBS+=-latslib -ldl
 
 NAME := tests
 SRCDIR  := 

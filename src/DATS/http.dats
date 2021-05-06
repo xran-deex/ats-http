@@ -204,7 +204,7 @@ fn free_server_(server: server_):<!wrt> void = {
     }
 }
 
-// handles the SIGPIPE signal so we don't crash
+// handles the SIGPIPE signal so we don't crash when sending to a client that closed the connection
 fn ignore_sigpipe(e: !Epoll(Server)): void = {
     fn handle_signal(e: !Epoll(Server), w: !Watcher(Server, void), evs: uint): void = () where {
         // just ignore it
@@ -216,11 +216,6 @@ fn ignore_sigpipe(e: !Epoll(Server)): void = {
         val i = sigaddset(s, SIGPIPE)
         val _ = sigprocmask(SIG_BLOCK, s, 0)
         val fd = signalfd(~1, s, 0)
-        val () = if fd > 0 then {
-            val _ = setnonblocking(fd)
-            val w = make_watcher(fd, handle_signal)
-            val () = register_watcher(e, w, EPOLLIN)
-        }
     } else {
         prval() = opt_unnone(s)
     }

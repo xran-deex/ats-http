@@ -3,7 +3,7 @@ ATSOPT=$(PATSHOME)/bin/patsopt
 
 ATSFLAGS+=-IATS src
 
-CFLAGS+=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -O2 -I src -fno-stack-protector
+CFLAGS+=-DATS_MEMALLOC_LIBC -D_DEFAULT_SOURCE -I $(PATSHOME)/ccomp/runtime -I $(PATSHOME) -O2 -I src
 LDFLAGS+=-L $(PATSHOME)/ccomp/atslib/lib
 LIBS+=-latslib
 
