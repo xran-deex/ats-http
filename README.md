@@ -4,20 +4,14 @@
 
 ## Quick start (Docker)
 ```bash
-docker run -it --rm -v $PWD:/code -p 8888:8888 \
--e "STATICLIB=1" -e "OUTDIR=/code/.libs" xrandeex/ats2-libz:0.4.0 \
-make -C /code runtest
+docker run -v `pwd`:/src --net=host -it --rm xrandeex/ats2:0.4.2 conan remote add pkg <conan_package_url> && conan install . -if build && conan build . -if build
 ```
 
 ## Dependencies
-Until optional dependencies are working, you will need libz installed.
-```bash
-sudo apt install zlib1g-dev
-```
-To run the examples, you will need sqlite3 as well.
-```bash
-sudo apt install libsqlite3-dev
-```
+Dependencies are handled using conan (which depends on Python)
+Conan https://conan.io
+
+A simple conan helper file needs to be installed to add the correct include paths to the makefile. (https://github.com/xran-deex/atsconan)
 
 ## Example
 ``` ats
@@ -44,22 +38,22 @@ implement main(argc, argv) = 0 where {
     val () = free_server(server)
 }
 ```
+## Install dependencies
+``` bash
+conan install . --install-folder build
+```
 
 ## Build
-Build a shared library
 ``` bash
-make
-```
-Build a static library
-``` bash
-STATICLIB=1 make
+conan build . --install-folder build
 ```
 
-Run the test app
-```bash
-./tests/target/tests
+## Build and run test app
+``` bash
 
-or
+cd tests
+conan install . --install-folder build
+conan build . --install-folder build
+./tests
 
-STATICLIB=1 make runtest
 ```
