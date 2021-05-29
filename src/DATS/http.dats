@@ -275,7 +275,6 @@ implement run_server(serve) = {
     }
     val-~Some_vt(s) = free_epoll(e)
     val () = serve := s
-    // val () = free_server_opt(s)
 }
 
 implement free_server(server) = {
