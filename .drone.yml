@@ -7,4 +7,4 @@ steps:
   commands:
     - conan remote add pkg https://pkg.us.to
     - conan install . -if build
-    - conan build . -if buil
+    - conan build . -if build
