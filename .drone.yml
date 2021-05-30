@@ -8,3 +8,10 @@ steps:
     - conan remote add pkg https://pkg.us.to
     - conan install . -if build
     - conan build . -if build
+- name: test
+  image: xrandeex/ats2:0.4.2
+  commands:
+    - conan remote add pkg https://pkg.us.to
+    - cd tests
+    - conan install . -if build
+    - conan build . -if build
