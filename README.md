@@ -4,7 +4,7 @@
 
 ## Quick start (Docker)
 ```bash
-docker run -v `pwd`:/src --net=host -it --rm xrandeex/ats2:0.4.2 conan remote add pkg <conan_package_url> && conan install . -if build && conan build . -if build
+docker run -v `pwd`:/src --net=host -it --rm -e CONAN_REMOTE=<conan_package_url> xrandeex/ats2:0.4.2 "conan install . -if build && conan build . -if build"
 ```
 
 ## Dependencies
