@@ -33,10 +33,10 @@ $(DNAME): $(DOBJ)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(SDIR)/%.o: %.c | $(SDIR)
-	$(CC) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 $(DDIR)/%.o: %.c | $(DDIR)
-	$(CC) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 %.c: %.dats
 	$(ATSOPT) $(ATSFLAGS) -o $(@F) -d $<
