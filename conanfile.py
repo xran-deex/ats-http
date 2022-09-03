@@ -5,7 +5,7 @@ class ATSConan(ATSConan):
     version = "0.2"
     requires = [
         "ats-threadpool/0.1@randy.valis/testing",
-        "ats-epoll/0.2@randy.valis/testing",
+        "ats-epoll/0.2.1@randy.valis/testing",
         "ats-libz/0.1@randy.valis/testing",
         "hashtable-vt/0.2@randy.valis/testing",
         "ats-pthread-extensions/0.1@randy.valis/testing",
