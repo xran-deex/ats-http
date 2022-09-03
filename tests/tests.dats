@@ -1,11 +1,14 @@
 #include "ats-http.hats"
 staload "libats/libc/SATS/string.sats"
 #include "ats-sqlite3.hats"
+#include "ats-json.hats"
 
 staload $HTTP
 staload $REQ
 staload $RESP
 staload $SQLITE
+staload $JSON
+staload $JSON_TYPES
 
 implement main(argc, argv) = 0 where {
     var server = make_server(8888)
@@ -31,6 +34,31 @@ implement main(argc, argv) = 0 where {
     val () = get(server, "/hello", lam (req,resp) =<cloptr1> copy("Hello World") where {
         val () = set_status_code(resp, 200)
         val () = set_content_type(resp, "text/plain")
+    })
+
+    val () = get(server, "/json", lam (req,resp) =<cloptr1> res where {
+        val () = set_status_code(resp, 200)
+        val () = set_content_type(resp, "application/json")
+        val obj = new_object()
+        val () = add_value_to_object_exn(obj, "hello", String(copy "world"))
+        val res = json_to_string(obj)
+        val () = free_json(obj)
+    })
+
+    val () = post(server, "/json", lam (req,resp) =<cloptr1> copy("") where {
+        val () = set_status_code(resp, 200)
+        val () = set_content_type(resp, "application/json")
+        val body = get_body(req)
+        val () = case+ body of
+        | ~Some_vt(b) => {
+            val () = println!("Body: ", b)
+            val-~$RESULT.Ok(json) = parse_json_string(b)
+            val-~Some_vt(str) = get_string(json, "hello")
+            val () = println!("VALUE: ", str)
+            val () = free(str)
+            val () = free_json(json)
+        }
+        | ~None_vt() => ()
     })
 
     val () = get(server, "/database", lam (req, resp) =<cloptr1> res where {

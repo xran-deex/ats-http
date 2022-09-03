@@ -7,7 +7,11 @@ class ATSConan(ATSConan):
     exports_sources = "*"
     options = {"shared": [True, False], "fPIC": [True, False]}
     default_options = {"shared": False, "fPIC": True}
-    requires = "ats-http/0.1@randy.valis/testing", "ats-sqlite3/0.1@randy.valis/testing"
+    requires = [
+        "ats-http/0.2@randy.valis/testing",
+        "ats-sqlite3/0.1@randy.valis/testing",
+        "ats-json/0.1@randy.valis/testing"
+    ]
     build_requires = "ats-unit-testing/0.1@randy.valis/testing"
 
     def package(self):

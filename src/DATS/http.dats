@@ -52,13 +52,13 @@ fn get_handler(serve: !Server, conn: !Conn): Handler = handler where {
     val ptr = $HT.hashtbl_search_ref(s.router, key)
     val () = free(key)
     val handler = (if ptr != 0 then 
-        $UNSAFE.castvwtp1{Handler}($UNSAFE.cptr_get<ptr>(ptr))
+        $UNSAFE.castvwtp1{Handler}($UNSAFE.p2tr_get<ptr>(ptr))
         else res where {
             // no handler for this path/method combo, so return 404
             val key = copy("NOTFOUND")
             val ptr = $HT.hashtbl_search_ref(s.router, key)
             val () = free(key)
-            val res = (if ptr != 0 then $UNSAFE.castvwtp1{Handler}($UNSAFE.cptr_get<ptr>(ptr)) else $raise NotFoundExn): Handler
+            val res = (if ptr != 0 then $UNSAFE.castvwtp1{Handler}($UNSAFE.p2tr_get<ptr>(ptr)) else $raise NotFoundExn): Handler
         }
     ): Handler
     prval () = fold@server
@@ -93,11 +93,11 @@ fun do_read(e: !Epoll(Server), w: !Watcher(Server, Conn), evs: uint): void = () 
             // TODO - handle requests larger than the buffer size
             val () = if num_read >= 0 then {
                 val (pf | opt) = watcher_data_takeout<Conn>(w)
-                val-~Some_vt(conn) = opt
+                val-@Some_vt(conn) = opt
                 val () = parse_conn_from_buffer(conn, buf, BUFSZ)
 
-                val (pf2 | opt) = epoll_data_takeout<Server>(e)
-                val-~Some_vt(serve) = opt
+                val (pf2 | opt2) = epoll_data_takeout<Server>(e)
+                val-@Some_vt(serve) = opt2
 
                 val () = clear_request_buffer(conn)
 
@@ -106,15 +106,18 @@ fun do_read(e: !Epoll(Server), w: !Watcher(Server, Conn), evs: uint): void = () 
                 val res = call_handler(conn, handler)
 
                 val () = set_response(serve, conn, res)
+                prval () = fold@opt2
+                prval () = fold@opt
 
-                val () = watcher_data_addback<Conn>(pf | w, conn)
+                val () = watcher_data_addback<Conn>(pf | w, opt)
                 val () = update_watcher(e, w, EPOLLOUT lor EPOLLET)
-                val () = epoll_data_addback(pf2 | e, serve)
+                val () = epoll_data_addback(pf2 | e, opt2)
             } else if num_read > 0 then {
                 val (pf | opt) = watcher_data_takeout<Conn>(w)
-                val-~Some_vt(conn) = opt
+                val-@Some_vt(conn) = opt
                 val () = append_data(conn, buf, BUFSZ, num_read)
-                val () = watcher_data_addback<Conn>(pf | w, conn)
+                prval () = fold@opt
+                val () = watcher_data_addback<Conn>(pf | w, opt)
                 val () = loop(e, w)
             }
         }
@@ -125,12 +128,13 @@ fun do_read(e: !Epoll(Server), w: !Watcher(Server, Conn), evs: uint): void = () 
         fun loop(e: !Epoll(Server), w: !Watcher(Server, Conn)): void = {
             var buf = @[byte][BUFSZ](int2byte0 0)
             val (pf2 | opt) = watcher_data_takeout<Conn>(w)
-            val-~Some_vt(st) = opt
+            val-@Some_vt(st) = opt
 
             val ret = write_response(st, fd)
             val () = clear_response_buffer(st)
+            prval () = fold@opt
 
-            val () = watcher_data_addback<Conn>(pf2 | w, st)
+            val () = watcher_data_addback<Conn>(pf2 | w, opt)
 
             val () = if ret > 0 && the_errno_get() = 0 then loop(e, w) else {
                 val () = update_watcher(e, w, EPOLLIN lor EPOLLET)

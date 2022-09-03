@@ -38,7 +38,7 @@ implement get_header_value(headers, header) = value where {
     val key = $UNSAFE.castvwtp1{strptr} header
     val ptr = $HT.hashtbl_search_ref(h.map, key)
     prval() = $UNSAFE.cast2void(key)
-    val value = (if ptr != 0 then Some_vt($UNSAFE.castvwtp0{string}($UNSAFE.cptr_get<strptr>(ptr)))
+    val value = (if ptr != 0 then Some_vt($UNSAFE.castvwtp0{string}($UNSAFE.p2tr_get<strptr>(ptr)))
     else None_vt()): Option_vt(string)
     prval() = fold@headers
 }
